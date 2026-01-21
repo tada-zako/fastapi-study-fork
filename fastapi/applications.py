@@ -1003,6 +1003,8 @@ class FastAPI(Starlette):
         exception_handlers: dict[Any, ExceptionHandler] = {}
 
         for key, value in self.exception_handlers.items():
+            # 只匹配  500 和 Exception 的处理，相当于兜底处理
+            # 不会匹配 Exception 的子类
             if key in (500, Exception):
                 error_handler = value
             else:
@@ -1039,6 +1041,7 @@ class FastAPI(Starlette):
         )
 
         app = self.router
+        # 这里能够遍历 Middleware 对象的原因，是 Middleware 类实现了 __iter__ 方法
         for cls, args, kwargs in reversed(middleware):
             app = cls(app, *args, **kwargs)
         return app
@@ -1078,6 +1081,7 @@ class FastAPI(Starlette):
 
     def setup(self) -> None:
         if self.openapi_url:
+            # 当指定了 openapi 路径，创建指定路径返回 openapi schema 实例
             urls = (server_data.get("url") for server_data in self.servers)
             server_urls = {url for url in urls if url}
 
@@ -1091,7 +1095,7 @@ class FastAPI(Starlette):
 
             self.add_route(self.openapi_url, openapi, include_in_schema=False)
         if self.openapi_url and self.docs_url:
-
+            # 指定 docs 路径，添加访问 docs_url 时响应 swagger UI 页面的路由
             async def swagger_ui_html(req: Request) -> HTMLResponse:
                 root_path = req.scope.get("root_path", "").rstrip("/")
                 openapi_url = root_path + self.openapi_url
@@ -1130,6 +1134,7 @@ class FastAPI(Starlette):
             self.add_route(self.redoc_url, redoc_html, include_in_schema=False)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # 适配 ASGI 协议
         if self.root_path:
             scope["root_path"] = self.root_path
         await super().__call__(scope, receive, send)

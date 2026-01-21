@@ -84,7 +84,11 @@ def request_response(
     Takes a function or coroutine `func(request) -> response`,
     and returns an ASGI application.
     """
+    # TODO: 没看懂这里的 request_response 函数，大概理解是为了释放所有的 yield 依赖，
+    # 但是不懂为什么这里使用 AsyncExitStack 以及为什么要返回 ASGIApp 对象
     f: Callable[[Request], Awaitable[Response]] = (
+        # 处理函数，如果函数是一个异步函数则直接使用；
+        # 否则调用 starlette.concurrency.run_in_threadpool 放到线程池中运行
         func if is_async_callable(func) else functools.partial(run_in_threadpool, func)  # type:ignore
     )
 
@@ -276,6 +280,7 @@ def get_request_handler(
         )
 
         # Extract endpoint context for error messages
+        # TODO: 不懂这一步将函数上下文提取并存储到缓存中的意义
         endpoint_ctx = (
             _extract_endpoint_context(dependant.call)
             if dependant.call
@@ -289,11 +294,14 @@ def get_request_handler(
 
         # Read body and auto-close files
         try:
+            # 处理请求体
             body: Any = None
             if body_field:
                 if is_body_form:
                     body = await request.form()
-                    file_stack.push_async_callback(body.close)
+                    file_stack.push_async_callback(
+                        body.close
+                    )  # 这里 body.close 实际上调用的是 FormData.close 方法，作用是关闭文件 IO 流
                 else:
                     body_bytes = await request.body()
                     if body_bytes:
@@ -342,6 +350,7 @@ def get_request_handler(
         assert isinstance(async_exit_stack, AsyncExitStack), (
             "fastapi_inner_astack not found in request scope"
         )
+        # 这里应该是获取所有依赖项处理后的结果了
         solved_result = await solve_dependencies(
             request=request,
             dependant=dependant,
@@ -352,7 +361,9 @@ def get_request_handler(
         )
         errors = solved_result.errors
         if not errors:
+            # 这里直接运行路径操作函数
             raw_response = await run_endpoint_function(
+                # 这里既然最后还是调用的 dependant.call，所以 endpoint 函数也被放到依赖项树中了？
                 dependant=dependant,
                 values=solved_result.values,
                 is_coroutine=is_coroutine,
@@ -373,6 +384,7 @@ def get_request_handler(
                 if current_status_code is not None:
                     response_args["status_code"] = current_status_code
                 if solved_result.response.status_code:
+                    # TODO: 何意味？这里最后 response_args["status_code"] 不是被依赖项的 response 覆盖了嘛？
                     response_args["status_code"] = solved_result.response.status_code
                 content = await serialize_response(
                     field=response_field,
@@ -401,6 +413,11 @@ def get_request_handler(
         return response
 
     return app
+    # 返回一个 app，这个 app 包含整个操作路径的全部处理逻辑，包括依赖处理以及 endpoint 的执行
+    # 但是具体的依赖处理和 endpoint 执行流程仍然算是处于黑箱操作——大体指导依赖项的处理流程是递归执行，
+    # 但是无法确定具体细节，例如依赖树的构建、树的执行顺序等。同时 endpoint 被封装到依赖树中，最终执行
+    # 是 run_endpoint_function 函数调用 dependant.call 实现，处于黑箱状态，
+    # 对于依赖项回调 / finally / except 等的执行流程尚不清楚。
 
 
 def get_websocket_app(

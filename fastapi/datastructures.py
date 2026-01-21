@@ -180,4 +180,7 @@ def Default(value: DefaultType) -> DefaultType:
     It's used internally to recognize when a default value has been overwritten, even
     if the overridden default value was truthy.
     """
+
+    # 作用大概是用于区分参数是否是默认值，或者是用户传入的值：
+    # 当用户传入的值和参数的默认值相同时，能够通过 isinstance(...) 来区分。
     return DefaultPlaceholder(value)  # type: ignore

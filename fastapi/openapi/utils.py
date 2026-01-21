@@ -75,6 +75,7 @@ status_code_ranges: dict[str, str] = {
 }
 
 
+# fastapi 框架内置的 security 处理
 def get_openapi_security_definitions(
     flat_dependant: Dependant,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:

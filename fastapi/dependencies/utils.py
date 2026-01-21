@@ -626,6 +626,7 @@ async def solve_dependencies(
         if solved_result.errors:
             errors.extend(solved_result.errors)
             continue
+
         if sub_dependant.use_cache and sub_dependant.cache_key in dependency_cache:
             solved = dependency_cache[sub_dependant.cache_key]
         elif (
@@ -643,10 +644,12 @@ async def solve_dependencies(
             solved = await call(**solved_result.values)
         else:
             solved = await run_in_threadpool(call, **solved_result.values)
+
         if sub_dependant.name is not None:
             values[sub_dependant.name] = solved
         if sub_dependant.cache_key not in dependency_cache:
             dependency_cache[sub_dependant.cache_key] = solved
+
     path_values, path_errors = request_params_to_args(
         dependant.path_params, request.path_params
     )
@@ -698,6 +701,9 @@ async def solve_dependencies(
         response=response,
         dependency_cache=dependency_cache,
     )
+    # 看起来这个工具函数的作用就是负责递归执行各个依赖项，并整合所有的依赖项输出和错误。
+    # TODO: 但是中间有一个疑惑：dependency_overrides_provider 这个参数是什么呢？什么情况会出现这个覆盖依赖项？
+    # 以及 for 循环中 solved 的结果是基于覆盖前的依赖项获取的，还是覆盖后的呢？
 
 
 def _validate_value_with_model_field(

@@ -108,6 +108,9 @@ def generate_encoders_by_class_tuples(
 encoders_by_class_tuples = generate_encoders_by_class_tuples(ENCODERS_BY_TYPE)
 
 
+# 本质为 python.json.dumps 的增强版，依旧是递归调用
+# 支持 pydantic model, dataclass, Enum, Path 等等的序列化
+# 同时通过 ENCODERS_BY_TYPE 支持常用类型的序列化，例如 datetime, Decimal 等等
 def jsonable_encoder(
     obj: Annotated[
         Any,
