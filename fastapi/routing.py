@@ -491,6 +491,11 @@ class APIWebSocketRoute(routing.WebSocketRoute):
                 embed_body_fields=self._embed_body_fields,
             )
         )
+        # 这里的 app 在获取上，使用了大量的闭包操作，具体的调用链如下：
+        # get_websocket_app -> app（闭包函数，负责依赖项以及 endpoint 的执行）
+        #  -> websocket_session -> app（最外层的 ASGIApp，也是 APIWebSocketRoute.app 的值）
+        # APIWebSocketRoute.app 内层嵌套一层 app，负责传递 AsyncExitStack 并触发 get_websocket_app 执行
+        # 最后使用 wrap_app_handling_exceptions 在添加外围一层的异常处理逻辑
 
     def matches(self, scope: Scope) -> tuple[Match, Scope]:
         match, child_scope = super().matches(scope)
@@ -541,6 +546,15 @@ class APIRoute(routing.Route):
             if lenient_issubclass(return_annotation, Response):
                 response_model = None
             else:
+                # 就这一步来看，如果用户没有明确在 API 路径操作装饰器中声明 response_model=None，
+                # 那么 fastapi 框架内部会将函数声明的返回类型用于 response_model 的推断：
+                # 如果有
+                # ```py
+                # @app.get("/items/")
+                # async def get_items() -> list[Item]: ...
+                # ```
+                # 那么等价于设置了 `response_model=list[Item]`；
+                # 可能会导致 pydantic 内部模型校验的错误
                 response_model = return_annotation
         self.response_model = response_model
         self.summary = summary
@@ -676,6 +690,9 @@ class APIRoute(routing.Route):
         if match != Match.NONE:
             child_scope["route"] = self
         return match, child_scope
+
+    # 结构和 APIWebSocketRoute 基本一致...
+    # 暂不清楚 Route 和 Router 的区别
 
 
 class APIRouter(routing.Router):

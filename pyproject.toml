@@ -278,5 +278,10 @@ known-third-party = ["fastapi", "pydantic", "starlette"]
 keep-runtime-typing = true
 
 [tool.inline-snapshot]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
 # default-flags=["fix"]
 # default-flags=["create"]
