@@ -159,6 +159,7 @@ def _merge_lifespan_context(
                 if maybe_nested_state is None and maybe_original_state is None:
                     yield None  # old ASGI compatibility
                 else:
+                    # 这里 yield 两个生命周期逻辑
                     yield {**(maybe_nested_state or {}), **(maybe_original_state or {})}
 
     return merged_lifespan  # type: ignore[return-value]
@@ -1034,7 +1035,7 @@ class APIRouter(routing.Router):
             generate_unique_id_function, self.generate_unique_id_function
         )
         route = route_class(
-            self.prefix + path,
+            self.prefix + path,  # router 的 prefix 会在创建新的 route 时添加到 path 中
             endpoint=endpoint,
             response_model=response_model,
             status_code=status_code,
@@ -1375,6 +1376,8 @@ class APIRouter(routing.Router):
         for route in router.routes:
             if isinstance(route, APIRoute):
                 combined_responses = {**responses, **route.responses}
+                # 基于优先级确定，遍历所有可能用户设置的 response_class，
+                # 选择用户自己定义的 class 作为最终使用的 class；否则使用第一个默认的 response_class
                 use_response_class = get_value_or_default(
                     route.response_class,
                     router.default_response_class,
@@ -1403,6 +1406,8 @@ class APIRouter(routing.Router):
                     self.generate_unique_id_function,
                 )
                 self.add_api_route(
+                    # 合并 router 时的 prefix 能够和 router.prefix 同时存在
+                    # include_router(prefix=...) 在挂载 router 时生效
                     prefix + route.path,
                     route.endpoint,
                     response_model=route.response_model,

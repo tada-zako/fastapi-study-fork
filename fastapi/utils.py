@@ -54,6 +54,7 @@ def is_body_allowed_for_status_code(status_code: Union[int, str, None]) -> bool:
 
 
 def get_path_param_names(path: str) -> set[str]:
+    # 匹配 `{}` 中的内容，并返回一个 set
     return set(re.findall("{(.*?)}", path))
 
 

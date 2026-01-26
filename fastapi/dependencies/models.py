@@ -16,6 +16,7 @@ else:  # pragma: no cover
 
 
 def _unwrapped_call(call: Optional[Callable[..., Any]]) -> Any:
+    """获取未经过装饰器包装的原始函数"""
     if call is None:
         return call  # pragma: no cover
     unwrapped = inspect.unwrap(_impartial(call))
@@ -23,6 +24,7 @@ def _unwrapped_call(call: Optional[Callable[..., Any]]) -> Any:
 
 
 def _impartial(func: Callable[..., Any]) -> Callable[..., Any]:
+    """从 inspect.partial 对象中提取原始函数"""
     while isinstance(func, partial):
         func = func.func
     return func
@@ -110,8 +112,10 @@ class Dependant:
             _impartial(self.call)
         ) or inspect.isgeneratorfunction(_unwrapped_call(self.call)):
             return True
+        # 如果 self.call 是类，则不检查 __call__
         if inspect.isclass(_unwrapped_call(self.call)):
             return False
+        # 此时 self.call 是类实例
         dunder_call = getattr(_impartial(self.call), "__call__", None)  # noqa: B004
         if dunder_call is None:
             return False  # pragma: no cover

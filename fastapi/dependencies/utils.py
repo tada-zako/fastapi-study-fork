@@ -200,7 +200,9 @@ def get_flat_params(dependant: Dependant) -> list[ModelField]:
 def _get_signature(call: Callable[..., Any]) -> inspect.Signature:
     if sys.version_info >= (3, 10):
         try:
-            signature = inspect.signature(call, eval_str=True)
+            signature = inspect.signature(
+                call, eval_str=True
+            )  # eval_str 参数用于控制解析**字符串**形式的类型注解
         except NameError:
             # Handle type annotations with if TYPE_CHECKING, not used by FastAPI
             # e.g. dependency return types
@@ -211,6 +213,7 @@ def _get_signature(call: Callable[..., Any]) -> inspect.Signature:
 
 
 def get_typed_signature(call: Callable[..., Any]) -> inspect.Signature:
+    """获取带有正确类型注解的函数签名，将字符串形式的类型注解解析为实际类型"""
     signature = _get_signature(call)
     unwrapped = inspect.unwrap(call)
     globalns = getattr(unwrapped, "__globals__", {})
