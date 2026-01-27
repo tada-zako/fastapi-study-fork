@@ -420,8 +420,11 @@ def is_bytes_sequence_field(field: ModelField) -> bool:
 
 
 def copy_field_info(*, field_info: FieldInfo, annotation: Any) -> FieldInfo:
+    """复制 field_info 并替换 metadata 和 annotation 为参数 annotation 中的对应值"""
     cls = type(field_info)
-    merged_field_info = cls.from_annotation(annotation)
+    merged_field_info = cls.from_annotation(
+        annotation
+    )  # 如果 annotation 中存在多个 Field 属性，则后面的会覆盖前面的
     new_field_info = copy(field_info)
     new_field_info.metadata = merged_field_info.metadata
     new_field_info.annotation = merged_field_info.annotation

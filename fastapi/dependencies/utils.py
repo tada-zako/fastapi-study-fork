@@ -231,15 +231,19 @@ def get_typed_signature(call: Callable[..., Any]) -> inspect.Signature:
 
 
 def get_typed_annotation(annotation: Any, globalns: dict[str, Any]) -> Any:
+    """获取字符串形式的类型注释的对应真实类型"""
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
-        annotation = evaluate_forwardref(annotation, globalns, globalns)
+        annotation = evaluate_forwardref(
+            annotation, globalns, globalns
+        )  # 在模块的全局命名空间中尝试查找字符串类型注解对应的真实类型
         if annotation is type(None):
             return None
     return annotation
 
 
 def get_typed_return_annotation(call: Callable[..., Any]) -> Any:
+    """获取函数返回注解的真实类型"""
     signature = _get_signature(call)
     unwrapped = inspect.unwrap(call)
     annotation = signature.return_annotation
@@ -401,10 +405,16 @@ def analyze_param(
         # Set default for Annotated FieldInfo
         if isinstance(fastapi_annotation, FieldInfo):
             # Copy `field_info` because we mutate `field_info.default` below.
+            # 这一步的 copy_field_info 不止是拷贝了一份 field_info，
+            # 还会将 annotation 中其它的 metadata 以合并到返回的 field_info 中，
+            # 这使得 fastapi 允许用户叠加多种类型约束。
+            # 例：`Annotated[int, Field(description="Body data"), Body(le=100)]`
             field_info = copy_field_info(
                 field_info=fastapi_annotation,  # type: ignore[arg-type]
                 annotation=use_annotation,
             )
+            # fastapi 内部通过段验限制了用户不能在 Annotated 的 FieldInfo 中设置默认值
+            # 只允许以 `param: Annotated[type, Field(...)] = default_value` 的形式设置默认值
             assert (
                 field_info.default == Undefined or field_info.default == RequiredParam
             ), (
