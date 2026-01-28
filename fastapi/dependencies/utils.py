@@ -265,6 +265,10 @@ def get_dependant(
     use_cache: bool = True,
     scope: Union[Literal["function", "request"], None] = None,
 ) -> Dependant:
+    """
+    创建 Dependant 实例，本质是创建路径操作函数的依赖项树
+    其中整个路径操作函数被视作依赖树根节点，函数所有参数都被解析后用于实例化 Dependant 对象
+    """
     dependant = Dependant(
         call=call,
         name=name,
@@ -368,6 +372,10 @@ def analyze_param(
     value: Any,
     is_path_param: bool,
 ) -> ParamDetails:
+    """
+    分析函数参数，通过分析参数的类型注解和默认值，
+    在内部转换成 FastAPI 支持的特殊参数，并返回解析后的结果综合
+    """
     field_info = None
     depends = None
     type_annotation: Any = Any
@@ -376,6 +384,7 @@ def analyze_param(
         use_annotation = annotation
         type_annotation = annotation
     # Extract Annotated info
+    # 处理 Annotated 类型的类型注解
     if get_origin(use_annotation) is Annotated:
         annotated_args = get_args(annotation)
         type_annotation = annotated_args[0]
@@ -430,6 +439,7 @@ def analyze_param(
         elif isinstance(fastapi_annotation, params.Depends):
             depends = fastapi_annotation
     # Get Depends from default value
+    # 处理 param: type = Depends(...) 形式的依赖注入
     if isinstance(value, params.Depends):
         assert depends is None, (
             "Cannot specify `Depends` in `Annotated` and default value"
@@ -441,6 +451,7 @@ def analyze_param(
         )
         depends = value
     # Get FieldInfo from default value
+    # 处理 param: type = Field(...) 形式的参数注入
     elif isinstance(value, FieldInfo):
         assert field_info is None, (
             "Cannot specify FastAPI annotations in `Annotated` and default value"
@@ -473,12 +484,27 @@ def analyze_param(
             f"Cannot specify FastAPI annotation for type {type_annotation!r}"
         )
     # Handle default assignations, neither field_info nor depends was not found in Annotated nor default value
+    # 处理 param: type = default_value 形式的参数注入，此处的 default_value 不属于 FastAPI 特定的类型注解
     elif field_info is None and depends is None:
         default_value = value if value is not inspect.Signature.empty else RequiredParam
         if is_path_param:
             # We might check here that `default_value is RequiredParam`, but the fact is that the same
             # parameter might sometimes be a path parameter and sometimes not. See
             # `tests/test_infer_param_optionality.py` for an example.
+            # 同一个路径操作函数中的某个 param，可能在不同的 router 中扮演不同的类型
+            # 例如：
+            # ```python
+            # @item_router.get("/{item_id}")
+            # def get_item(item_id: str, user_id: Optional[str] = None):
+            #     if user_id is None:
+            #         return {"item_id": item_id}
+            #     else:
+            #         return {"item_id": item_id, "user_id": user_id}
+            #
+            # app.include_router(item_router, prefix="/items")
+            # app.include_router(item_router, prefix="/users/{user_id}/items")
+            # ```
+            # 上述测试用例中，路径操作函数 get_item 中的同一个参数 user_id 既可能是路径参数，有可能是查询参数
             field_info = params.Path(annotation=use_annotation)
         elif is_uploadfile_or_nonable_uploadfile_annotation(
             type_annotation
