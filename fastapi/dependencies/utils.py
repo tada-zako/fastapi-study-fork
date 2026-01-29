@@ -649,7 +649,7 @@ async def solve_dependencies(
                 parent_oauth_scopes=sub_dependant.oauth_scopes,
                 scope=sub_dependant.scope,
             )
-
+        # 递归调用获取子依赖项的执行结果
         solved_result = await solve_dependencies(
             request=request,
             dependant=use_sub_dependant,
@@ -668,6 +668,9 @@ async def solve_dependencies(
 
         if sub_dependant.use_cache and sub_dependant.cache_key in dependency_cache:
             solved = dependency_cache[sub_dependant.cache_key]
+        # 首先递归调用执行获取当前依赖项的子依赖项的函数参数（子依赖项尚未执行）
+        # 然后再检查当前依赖项是否已经执行过（缓存命中），如果命中则直接使用缓存结果
+        # TODO: 上述的两层逻辑是否可以互换顺序？先检查缓存，如果未名中，则再递归调用获取子依赖项参数？
         elif (
             use_sub_dependant.is_gen_callable or use_sub_dependant.is_async_gen_callable
         ):
@@ -741,6 +744,9 @@ async def solve_dependencies(
         dependency_cache=dependency_cache,
     )
     # 看起来这个工具函数的作用就是负责递归执行各个依赖项，并整合所有的依赖项输出和错误。
+    # NOTE: 需要注意的是，for 循环中只是执行完毕所有当前 dependant 的子依赖项，
+    # 并没有执行当前 dependant 本身，当前 dependant 的执行是在上层递归调用中完成的。
+    # 而最顶层的 endpoint 实际上尚未执行。
     # TODO: 但是中间有一个疑惑：dependency_overrides_provider 这个参数是什么呢？什么情况会出现这个覆盖依赖项？
     # 以及 for 循环中 solved 的结果是基于覆盖前的依赖项获取的，还是覆盖后的呢？
 

@@ -119,6 +119,13 @@ def request_response(
         await wrap_app_handling_exceptions(app, request)(scope, receive, send)
 
     return app
+    # update(1-30): 实际理解至此，大概读完了 routing.py 以及 dependencies 相关的部分代码
+    # 基本上 fastapi 框架主要负责的内容基本了解清楚了，像是 Router 对象的创建、route API 的注册
+    # 以及 depends 的执行顺序等等。Router 相关的逻辑大部分是继承自 starlette 框架的 routing 模块，
+    # fastapi 内部最关键的还是处理 depends 的逻辑，通过函数反射解析函数以及所有依赖项，构建 Dependant 对象树
+    # 并递归执行。
+    # 现在最关键的一个困惑：生成器依赖项的退出代码逻辑的执行位置。通读全篇，depends 确实是通过 AsyncExitStack 存储的，
+    # 但是到现在，还是没看到这个异步退出栈具体的执行位置。
 
 
 # Copy of starlette.routing.websocket_session modified to include the
